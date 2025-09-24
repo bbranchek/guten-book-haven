@@ -90,9 +90,19 @@ serve(async (req) => {
       }
     }
 
+    // Remove duplicates based on book ID
+    const uniqueBooks = new Map();
+    filteredResults.forEach((book: any) => {
+      if (!uniqueBooks.has(book.id)) {
+        uniqueBooks.set(book.id, book);
+      }
+    });
+    
+    const deduplicatedResults = Array.from(uniqueBooks.values());
+
     const result = {
       ...data,
-      results: filteredResults
+      results: deduplicatedResults
     };
 
     return new Response(

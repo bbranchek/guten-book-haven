@@ -313,33 +313,6 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
               )}
             </>
           )}
-
-          {book.formats && Object.keys(book.formats).length > 0 && (
-            <div className="pt-4 border-t">
-              <h3 className="font-semibold text-primary mb-3">Other Download Formats:</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {Object.entries(book.formats).map(([format, url]) => (
-                  <Button
-                    key={format}
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    className="flex items-center gap-2 justify-start"
-                  >
-                    <a href={url} target="_blank" rel="noopener noreferrer">
-                      <Download className="h-3 w-3" />
-                      <span className="text-xs truncate">
-                        {format.includes('epub') ? 'EPUB' : 
-                         format.includes('pdf') ? 'PDF' : 
-                         format.includes('kindle') ? 'Kindle' :
-                         format.split('/')[1]?.toUpperCase() || 'Download'}
-                      </span>
-                    </a>
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
