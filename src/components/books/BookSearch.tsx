@@ -154,6 +154,20 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
           >
             {isLoading ? "Searching..." : `Search by ${searchType === "title" ? "Title" : "Author"}`}
           </Button>
+
+          {/* Animated Loading Ellipse for Author Search */}
+          {isLoading && searchType === "author" && (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex space-x-1">
+                <div className="w-3 h-3 bg-primary rounded-full animate-pulse [animation-delay:0ms]"></div>
+                <div className="w-3 h-3 bg-primary rounded-full animate-pulse [animation-delay:150ms]"></div>
+                <div className="w-3 h-3 bg-primary rounded-full animate-pulse [animation-delay:300ms]"></div>
+              </div>
+              <span className="ml-3 text-sm text-muted-foreground animate-fade-in">
+                Loading books by author...
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
