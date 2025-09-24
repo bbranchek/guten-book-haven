@@ -90,11 +90,39 @@ serve(async (req) => {
       }
     }
 
-    // Remove duplicates based on book ID
+    // Remove duplicates based on title and author, prioritizing readable formats
     const uniqueBooks = new Map();
     filteredResults.forEach((book: any) => {
-      if (!uniqueBooks.has(book.id)) {
-        uniqueBooks.set(book.id, book);
+      const titleKey = book.title.toLowerCase().trim();
+      const authorKey = book.authors?.map((a: any) => a.name).join(', ').toLowerCase() || '';
+      const bookKey = `${titleKey}|||${authorKey}`;
+      
+      const existing = uniqueBooks.get(bookKey);
+      if (!existing) {
+        uniqueBooks.set(bookKey, book);
+      } else {
+        // Prioritize text formats over audio formats
+        const hasReadableFormat = book.formats && (
+          book.formats["text/plain; charset=us-ascii"] ||
+          book.formats["text/plain; charset=utf-8"] ||
+          book.formats["text/plain"] ||
+          book.formats["text/html"]
+        );
+        
+        const existingHasReadableFormat = existing.formats && (
+          existing.formats["text/plain; charset=us-ascii"] ||
+          existing.formats["text/plain; charset=utf-8"] ||
+          existing.formats["text/plain"] ||
+          existing.formats["text/html"]
+        );
+        
+        // Replace if current book has readable format and existing doesn't
+        // Or if both have readable formats but current has higher download count
+        if (hasReadableFormat && !existingHasReadableFormat) {
+          uniqueBooks.set(bookKey, book);
+        } else if (hasReadableFormat && existingHasReadableFormat && book.download_count > existing.download_count) {
+          uniqueBooks.set(bookKey, book);
+        }
       }
     });
     
