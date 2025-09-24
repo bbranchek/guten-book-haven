@@ -120,12 +120,16 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       setIsLoading(true);
       setBookContent("");
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Use our proxy edge function to avoid CORS issues
+      const { data, error } = await supabase.functions.invoke('fetch-book-content', {
+        body: { url }
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch book content');
       }
 
-      let content = await response.text();
+      let content = data.content;
 
       // Clean up HTML content for better reading
       if (format.includes("html")) {

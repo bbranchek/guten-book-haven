@@ -2,3 +2,6 @@ project_id = "jnttwzuqutvsfrhpnwrz"
 
 [functions.search-books]
 verify_jwt = false
+
+[functions.fetch-book-content]
+verify_jwt = false
