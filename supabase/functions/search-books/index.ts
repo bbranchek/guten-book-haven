@@ -75,7 +75,13 @@ serve(async (req) => {
     // Filter results by search type if needed
     let filteredResults = data.results || [];
     
-    if (searchType === 'author' && filteredResults.length > 0) {
+    if (searchType === 'title' && filteredResults.length > 0) {
+      // Filter to only include books where the title actually contains the search term
+      const searchLower = searchTerm.toLowerCase();
+      filteredResults = filteredResults.filter((book: any) => {
+        return book.title && book.title.toLowerCase().includes(searchLower);
+      });
+    } else if (searchType === 'author' && filteredResults.length > 0) {
       // Filter to prioritize books where the author name matches better
       const searchLower = searchTerm.toLowerCase();
       filteredResults = filteredResults.filter((book: any) => {
