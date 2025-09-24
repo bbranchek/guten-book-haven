@@ -43,10 +43,10 @@ serve(async (req) => {
     
     if (searchType === 'author') {
       // For author search, we'll search in the general search but could enhance this
-      apiUrl = `https://gutendx.com/books/?search=${encodeURIComponent(searchTerm)}`;
+      apiUrl = `https://gutendex.com/books/?search=${encodeURIComponent(searchTerm)}`;
     } else {
       // For title search
-      apiUrl = `https://gutendx.com/books/?search=${encodeURIComponent(searchTerm)}`;
+      apiUrl = `https://gutendex.com/books/?search=${encodeURIComponent(searchTerm)}`;
     }
 
     console.log(`Making request to: ${apiUrl}`);
