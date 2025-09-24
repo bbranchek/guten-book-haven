@@ -180,15 +180,18 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   };
 
   const getBestReadableFormat = () => {
-    // Priority: HTML first, then UTF-8 plain text, then regular plain text
-    if (book.formats["text/html"]) {
-      return { name: "HTML", url: book.formats["text/html"], key: "html" };
+    // Priority: US-ASCII plain text first, then other formats
+    if (book.formats["text/plain; charset=us-ascii"]) {
+      return { name: "Plain Text", url: book.formats["text/plain; charset=us-ascii"], key: "txt-ascii" };
+    }
+    if (book.formats["text/plain"]) {
+      return { name: "Plain Text", url: book.formats["text/plain"], key: "txt" };
     }
     if (book.formats["text/plain; charset=utf-8"]) {
       return { name: "Plain Text (UTF-8)", url: book.formats["text/plain; charset=utf-8"], key: "txt-utf8" };
     }
-    if (book.formats["text/plain"]) {
-      return { name: "Plain Text", url: book.formats["text/plain"], key: "txt" };
+    if (book.formats["text/html"]) {
+      return { name: "HTML", url: book.formats["text/html"], key: "html" };
     }
     return null;
   };
