@@ -16,27 +16,86 @@ export type Database = {
     Tables: {
       profiles: {
         Row: {
+          bio: string | null
+          books_read: number | null
           created_at: string
+          email: string | null
           id: string
+          reading_preferences: Json | null
           updated_at: string
           user_id: string
           username: string
         }
         Insert: {
+          bio?: string | null
+          books_read?: number | null
           created_at?: string
+          email?: string | null
           id?: string
+          reading_preferences?: Json | null
           updated_at?: string
           user_id: string
           username: string
         }
         Update: {
+          bio?: string | null
+          books_read?: number | null
           created_at?: string
+          email?: string | null
           id?: string
+          reading_preferences?: Json | null
           updated_at?: string
           user_id?: string
           username?: string
         }
         Relationships: []
+      }
+      user_books: {
+        Row: {
+          author: string | null
+          book_title: string
+          created_at: string
+          gutenberg_id: number
+          id: string
+          last_read_at: string | null
+          progress: number | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          author?: string | null
+          book_title: string
+          created_at?: string
+          gutenberg_id: number
+          id?: string
+          last_read_at?: string | null
+          progress?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          author?: string | null
+          book_title?: string
+          created_at?: string
+          gutenberg_id?: number
+          id?: string
+          last_read_at?: string | null
+          progress?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_books_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Views: {
