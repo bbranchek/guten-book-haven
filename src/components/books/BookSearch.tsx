@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { Search, BookOpen, User } from "lucide-react";
 
 interface Book {
@@ -42,17 +43,19 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
       setIsLoading(true);
       setHasSearched(true);
       
-      // Use Gutendex API with search parameter
-      const searchQuery = encodeURIComponent(searchTerm.trim());
-      const apiUrl = `https://gutendx.com/books/?search=${searchQuery}`;
+      // Use our Supabase Edge Function to search books
+      const { data, error } = await supabase.functions.invoke('search-books', {
+        body: { 
+          search: searchTerm.trim(),
+          type: searchType 
+        }
+      });
       
-      const response = await fetch(apiUrl);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (error) {
+        console.error('Search error:', error);
+        throw new Error(error.message || 'Failed to search books');
       }
       
-      const data = await response.json();
       setBooks(data.results || []);
       
       if (!data.results || data.results.length === 0) {
@@ -62,10 +65,11 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
         });
       }
       
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Search error:', error);
       toast({
         title: "Search Error",
-        description: "Unable to search books. Please check your connection and try again.",
+        description: error.message || "Unable to search books. Please check your connection and try again.",
         variant: "destructive"
       });
     } finally {
