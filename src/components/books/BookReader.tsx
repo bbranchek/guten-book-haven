@@ -179,20 +179,18 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     }
   };
 
-  const getAvailableFormats = () => {
-    const readableFormats = [];
-    
+  const getBestReadableFormat = () => {
+    // Priority: HTML first, then UTF-8 plain text, then regular plain text
     if (book.formats["text/html"]) {
-      readableFormats.push({ name: "HTML", url: book.formats["text/html"], key: "html" });
+      return { name: "HTML", url: book.formats["text/html"], key: "html" };
     }
     if (book.formats["text/plain; charset=utf-8"]) {
-      readableFormats.push({ name: "Plain Text (UTF-8)", url: book.formats["text/plain; charset=utf-8"], key: "txt-utf8" });
+      return { name: "Plain Text (UTF-8)", url: book.formats["text/plain; charset=utf-8"], key: "txt-utf8" };
     }
     if (book.formats["text/plain"]) {
-      readableFormats.push({ name: "Plain Text", url: book.formats["text/plain"], key: "txt" });
+      return { name: "Plain Text", url: book.formats["text/plain"], key: "txt" };
     }
-
-    return readableFormats;
+    return null;
   };
 
   const getAuthors = () => {
@@ -205,7 +203,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     }).join(", ");
   };
 
-  const availableFormats = getAvailableFormats();
+  const bestFormat = getBestReadableFormat();
 
   return (
     <div className="space-y-6">
@@ -266,7 +264,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {availableFormats.length === 0 ? (
+          {!bestFormat ? (
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>This book doesn't have readable text formats available.</p>
@@ -275,20 +273,17 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
           ) : (
             <>
               <div className="space-y-3">
-                <h3 className="font-semibold text-primary">Choose Reading Format:</h3>
-                <div className="flex flex-wrap gap-2">
-                  {availableFormats.map((format) => (
-                    <Button
-                      key={format.key}
-                      variant="parchment"
-                      onClick={() => loadBookContent(format.key, format.url)}
-                      disabled={isLoading}
-                      className="flex items-center gap-2"
-                    >
-                      <BookOpen className="h-4 w-4" />
-                      {format.name}
-                    </Button>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-primary">Read Book:</h3>
+                  <Button
+                    variant="parchment"
+                    onClick={() => loadBookContent(bestFormat.key, bestFormat.url)}
+                    disabled={isLoading}
+                    className="flex items-center gap-2"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    {bookContent ? 'Reload Text' : 'Load Text'}
+                  </Button>
                 </div>
               </div>
 
