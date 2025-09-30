@@ -103,6 +103,16 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
             <Search className="h-5 w-5" />
             Search Project Gutenberg
           </CardTitle>
+          <div className="mt-4 p-4 bg-primary/10 border-l-4 border-primary rounded">
+            <p className="text-sm font-semibold text-primary mb-2">
+              📖 How to use chapter navigation:
+            </p>
+            <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+              <li>Search for a book below</li>
+              <li>Click on any book from the results</li>
+              <li>The book reader will open with a "Jump to Chapter" input field at the top</li>
+            </ol>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <Tabs value={searchType} onValueChange={(value) => setSearchType(value as "title" | "author")}>
