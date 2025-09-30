@@ -454,8 +454,8 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                 </div>
 
                 {fullBookContent && (
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="chapter-input" className="text-sm font-medium text-muted-foreground">
+                  <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/20 rounded-md">
+                    <label htmlFor="chapter-input" className="text-sm font-medium">
                       Jump to Chapter:
                     </label>
                     <input
@@ -465,7 +465,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                       onChange={(e) => setChapterInput(e.target.value.toUpperCase())}
                       onKeyDown={(e) => e.key === 'Enter' && jumpToChapter()}
                       placeholder="I, II, III..."
-                      className="flex h-9 w-24 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex h-9 w-24 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       maxLength={10}
                     />
                     <Button
