@@ -23,11 +23,13 @@ interface BookReaderProps {
 
 export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [bookContent, setBookContent] = useState<string>("");
+  const [fullBookContent, setFullBookContent] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);  
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isBookmarkLoading, setIsBookmarkLoading] = useState(false);
   const [synopsis, setSynopsis] = useState<string>("");
   const [isSynopsisLoading, setIsSynopsisLoading] = useState(false);
+  const [chapterInput, setChapterInput] = useState<string>("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -172,7 +174,9 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
         }
       }
 
-      setBookContent(content.trim());
+      const trimmedContent = content.trim();
+      setBookContent(trimmedContent);
+      setFullBookContent(trimmedContent);
       
     } catch (error) {
       toast({
@@ -210,6 +214,99 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       }
       return name;
     }).join(", ");
+  };
+
+  const romanToInt = (roman: string): number => {
+    const romanMap: Record<string, number> = {
+      'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000
+    };
+    
+    let result = 0;
+    const upperRoman = roman.toUpperCase().trim();
+    
+    for (let i = 0; i < upperRoman.length; i++) {
+      const current = romanMap[upperRoman[i]];
+      const next = romanMap[upperRoman[i + 1]];
+      
+      if (!current) {
+        throw new Error('Invalid Roman numeral');
+      }
+      
+      if (next && current < next) {
+        result -= current;
+      } else {
+        result += current;
+      }
+    }
+    
+    return result;
+  };
+
+  const jumpToChapter = () => {
+    if (!chapterInput.trim()) {
+      toast({
+        title: "Invalid Input",
+        description: "Please enter a chapter number in Roman numerals (e.g., I, II, III).",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!fullBookContent) {
+      toast({
+        title: "Load Book First",
+        description: "Please load the book content before jumping to a chapter.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const chapterNum = romanToInt(chapterInput);
+      
+      // Common chapter heading patterns in Project Gutenberg books
+      const chapterPatterns = [
+        new RegExp(`\\n\\s*${chapterInput.toUpperCase()}[\\s\\.:]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+${chapterInput.toUpperCase()}[\\s\\.:]`, 'i'),
+        new RegExp(`\\n\\s*CHAPTER\\s+${chapterInput.toUpperCase()}[\\s\\.:]`, 'i'),
+        new RegExp(`\\n\\s*${chapterNum}[\\s\\.:]`, 'i')
+      ];
+
+      let chapterIndex = -1;
+      
+      for (const pattern of chapterPatterns) {
+        const match = fullBookContent.match(pattern);
+        if (match && match.index !== undefined) {
+          chapterIndex = match.index;
+          break;
+        }
+      }
+
+      if (chapterIndex === -1) {
+        toast({
+          title: "Chapter Not Found",
+          description: `Could not find chapter ${chapterInput.toUpperCase()} in the book. Try a different format.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const contentFromChapter = fullBookContent.substring(chapterIndex).trim();
+      setBookContent(contentFromChapter);
+      
+      toast({
+        title: "Chapter Found",
+        description: `Jumped to chapter ${chapterInput.toUpperCase()}.`
+      });
+      
+      setChapterInput("");
+    } catch (error: any) {
+      toast({
+        title: "Invalid Roman Numeral",
+        description: error.message || "Please enter a valid Roman numeral (e.g., I, II, III, IV).",
+        variant: "destructive"
+      });
+    }
   };
 
   const generateSynopsis = async () => {
@@ -355,6 +452,32 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                   </Button>
                   </div>
                 </div>
+
+                {fullBookContent && (
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="chapter-input" className="text-sm font-medium text-muted-foreground">
+                      Jump to Chapter:
+                    </label>
+                    <input
+                      id="chapter-input"
+                      type="text"
+                      value={chapterInput}
+                      onChange={(e) => setChapterInput(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && jumpToChapter()}
+                      placeholder="I, II, III..."
+                      className="flex h-9 w-24 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      maxLength={10}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={jumpToChapter}
+                      disabled={!chapterInput.trim()}
+                    >
+                      Go
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {isLoading && (
