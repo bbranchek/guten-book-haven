@@ -51,15 +51,23 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
         }
       });
       
-      if (error) {
-        console.error('Search error:', error);
-        const isTemporaryError = data?.isTemporary || error.message?.includes('temporarily') || error.message?.includes('503');
+      if (error || !data) {
+        console.error('Search error:', error, data);
+        
+        // Extract error message from response body if available
+        const errorMessage = data?.error || error?.message || "Unable to search books at this time.";
+        const isTemporaryError = data?.isTemporary || 
+                                 errorMessage.includes('temporarily') || 
+                                 errorMessage.includes('unavailable') ||
+                                 errorMessage.includes('refused');
         
         toast({
-          title: isTemporaryError ? "Service Temporarily Unavailable" : "Search Error",
-          description: error.message || "Unable to search books. Please try again.",
+          title: "Service Temporarily Unavailable",
+          description: isTemporaryError 
+            ? "The Project Gutenberg API is currently down. Please try again in a few minutes."
+            : errorMessage,
           variant: "destructive",
-          duration: isTemporaryError ? 8000 : 5000
+          duration: 10000
         });
         return;
       }
