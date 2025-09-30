@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, BookOpen, Download, Bookmark, BookmarkCheck } from "lucide-react";
+import { ArrowLeft, BookOpen, Download, Bookmark, BookmarkCheck, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Book {
@@ -26,6 +26,8 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [isLoading, setIsLoading] = useState(false);  
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [isBookmarkLoading, setIsBookmarkLoading] = useState(false);
+  const [synopsis, setSynopsis] = useState<string>("");
+  const [isSynopsisLoading, setIsSynopsisLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -210,6 +212,57 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     }).join(", ");
   };
 
+  const generateSynopsis = async () => {
+    if (!bookContent) {
+      toast({
+        title: "Load Book First",
+        description: "Please load the book content before generating a synopsis.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsSynopsisLoading(true);
+      setSynopsis("");
+
+      // Take first ~5000 characters of the book for synopsis
+      const excerpt = bookContent.slice(0, 5000);
+
+      const response = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama2',
+          prompt: `Generate a concise synopsis (1-2 paragraphs) of the following book excerpt. Focus on the main themes, characters, and plot.\n\nTitle: ${book.title}\nAuthor: ${getAuthors()}\n\nExcerpt:\n${excerpt}\n\nSynopsis:`,
+          stream: false
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate synopsis. Make sure Ollama is running locally.');
+      }
+
+      const data = await response.json();
+      setSynopsis(data.response);
+      
+      toast({
+        title: "Synopsis Generated",
+        description: "AI synopsis has been generated successfully."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Generation Error",
+        description: error.message || "Failed to generate synopsis. Ensure Ollama is running with 'llama2' model.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSynopsisLoading(false);
+    }
+  };
+
   const bestFormat = getBestReadableFormat();
 
   return (
@@ -282,15 +335,28 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-primary">Read Book:</h3>
-                  <Button
-                    variant="parchment"
-                    onClick={() => loadBookContent(bestFormat.key, bestFormat.url)}
-                    disabled={isLoading}
-                    className="flex items-center gap-2"
-                  >
-                    <BookOpen className="h-4 w-4" />
-                    {bookContent ? 'Reload Text' : 'Load Text'}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="parchment"
+                      onClick={() => loadBookContent(bestFormat.key, bestFormat.url)}
+                      disabled={isLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <BookOpen className="h-4 w-4" />
+                      {bookContent ? 'Reload Text' : 'Load Text'}
+                    </Button>
+                    {bookContent && (
+                      <Button
+                        variant="outline"
+                        onClick={generateSynopsis}
+                        disabled={isSynopsisLoading}
+                        className="flex items-center gap-2"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Generate Synopsis
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -299,6 +365,29 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                   <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
                   <p className="text-muted-foreground">Loading book content...</p>
                 </div>
+              )}
+
+              {isSynopsisLoading && (
+                <div className="text-center py-8">
+                  <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Generating AI synopsis...</p>
+                </div>
+              )}
+
+              {synopsis && (
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-serif flex items-center gap-2">
+                      <Sparkles className="h-5 w-5" />
+                      AI-Generated Synopsis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="prose prose-sm max-w-none text-foreground">
+                      <p className="leading-relaxed">{synopsis}</p>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {bookContent && (
