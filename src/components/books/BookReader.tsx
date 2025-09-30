@@ -453,8 +453,8 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/20 rounded-md">
-                  <label htmlFor="chapter-input" className="text-sm font-medium">
+                <div className="flex flex-wrap items-center gap-2 p-4 bg-card border-2 border-primary/20 rounded-lg shadow-sm">
+                  <label htmlFor="chapter-input" className="text-sm font-semibold text-primary">
                     Jump to Chapter:
                   </label>
                   <input
@@ -465,7 +465,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                     onKeyDown={(e) => e.key === 'Enter' && fullBookContent && jumpToChapter()}
                     placeholder="I, II, III..."
                     disabled={!fullBookContent}
-                    className="flex h-9 w-24 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-28 rounded-md border-2 border-primary/30 bg-background px-3 py-2 text-base font-medium shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     maxLength={10}
                   />
                   <Button
@@ -473,11 +473,12 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                     size="sm"
                     onClick={jumpToChapter}
                     disabled={!chapterInput.trim() || !fullBookContent}
+                    className="font-semibold"
                   >
                     Go
                   </Button>
                   {!fullBookContent && (
-                    <span className="text-xs text-muted-foreground">(Load book first)</span>
+                    <span className="text-sm text-muted-foreground font-medium">(Load book first)</span>
                   )}
                 </div>
               </div>
