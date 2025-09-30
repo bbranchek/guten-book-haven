@@ -39,10 +39,10 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
       return;
     }
 
+    setIsLoading(true);
+    setHasSearched(true);
+    
     try {
-      setIsLoading(true);
-      setHasSearched(true);
-      
       // Use our Supabase Edge Function to search books
       const { data, error } = await supabase.functions.invoke('search-books', {
         body: { 
@@ -53,7 +53,15 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
       
       if (error) {
         console.error('Search error:', error);
-        throw new Error(error.message || 'Failed to search books');
+        const isTemporaryError = data?.isTemporary || error.message?.includes('temporarily') || error.message?.includes('503');
+        
+        toast({
+          title: isTemporaryError ? "Service Temporarily Unavailable" : "Search Error",
+          description: error.message || "Unable to search books. Please try again.",
+          variant: "destructive",
+          duration: isTemporaryError ? 8000 : 5000
+        });
+        return;
       }
       
       setBooks(data.results || []);
@@ -64,14 +72,6 @@ export default function BookSearch({ onBookSelect }: BookSearchProps) {
           description: `No books found for "${searchTerm}". Try a different search term.`
         });
       }
-      
-    } catch (error: any) {
-      console.error('Search error:', error);
-      toast({
-        title: "Search Error",
-        description: error.message || "Unable to search books. Please check your connection and try again.",
-        variant: "destructive"
-      });
     } finally {
       setIsLoading(false);
     }

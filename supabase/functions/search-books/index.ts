@@ -51,19 +51,58 @@ serve(async (req) => {
 
     console.log(`Making request to: ${apiUrl}`);
 
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Gutenberg-Reader/1.0'
-      }
-    });
+    // Retry logic for external API failures
+    let response;
+    let lastError;
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Gutenberg-Reader/1.0'
+          }
+        });
 
-    if (!response.ok) {
-      console.error(`Gutendx API error: ${response.status} ${response.statusText}`);
+        if (response.ok) {
+          break; // Success, exit retry loop
+        }
+        
+        lastError = `${response.status} ${response.statusText}`;
+        console.error(`Gutendex API error (attempt ${attempt}/${maxRetries}): ${lastError}`);
+        
+        // Don't retry on client errors (4xx), only on server errors (5xx)
+        if (response.status < 500) {
+          break;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : 'Network error';
+        console.error(`Fetch error (attempt ${attempt}/${maxRetries}):`, lastError);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+
+    if (!response || !response.ok) {
+      const userMessage = response?.status === 503 
+        ? 'The Project Gutenberg API is temporarily unavailable. Please try again in a few moments.'
+        : `Unable to search books at this time. ${lastError || 'Please try again later.'}`;
+      
       return new Response(
-        JSON.stringify({ error: `Failed to fetch books: ${response.statusText}` }),
+        JSON.stringify({ 
+          error: userMessage,
+          isTemporary: true
+        }),
         { 
-          status: response.status, 
+          status: 503, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
