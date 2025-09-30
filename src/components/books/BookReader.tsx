@@ -453,31 +453,33 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                   </div>
                 </div>
 
-                {fullBookContent && (
-                  <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/20 rounded-md">
-                    <label htmlFor="chapter-input" className="text-sm font-medium">
-                      Jump to Chapter:
-                    </label>
-                    <input
-                      id="chapter-input"
-                      type="text"
-                      value={chapterInput}
-                      onChange={(e) => setChapterInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === 'Enter' && jumpToChapter()}
-                      placeholder="I, II, III..."
-                      className="flex h-9 w-24 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      maxLength={10}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={jumpToChapter}
-                      disabled={!chapterInput.trim()}
-                    >
-                      Go
-                    </Button>
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-secondary/20 rounded-md">
+                  <label htmlFor="chapter-input" className="text-sm font-medium">
+                    Jump to Chapter:
+                  </label>
+                  <input
+                    id="chapter-input"
+                    type="text"
+                    value={chapterInput}
+                    onChange={(e) => setChapterInput(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && fullBookContent && jumpToChapter()}
+                    placeholder="I, II, III..."
+                    disabled={!fullBookContent}
+                    className="flex h-9 w-24 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    maxLength={10}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={jumpToChapter}
+                    disabled={!chapterInput.trim() || !fullBookContent}
+                  >
+                    Go
+                  </Button>
+                  {!fullBookContent && (
+                    <span className="text-xs text-muted-foreground">(Load book first)</span>
+                  )}
+                </div>
               </div>
 
               {isLoading && (
