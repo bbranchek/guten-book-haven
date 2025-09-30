@@ -343,19 +343,17 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                       className="flex items-center gap-2"
                     >
                       <BookOpen className="h-4 w-4" />
-                      {bookContent ? 'Reload Text' : 'Load Text'}
-                    </Button>
-                    {bookContent && (
-                      <Button
-                        variant="outline"
-                        onClick={generateSynopsis}
-                        disabled={isSynopsisLoading}
-                        className="flex items-center gap-2"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        Generate Synopsis
-                      </Button>
-                    )}
+                    {bookContent ? 'Reload Text' : 'Load Text'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={generateSynopsis}
+                    disabled={isSynopsisLoading || !bookContent}
+                    className="flex items-center gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Generate Synopsis
+                  </Button>
                   </div>
                 </div>
               </div>
