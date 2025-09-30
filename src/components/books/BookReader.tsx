@@ -229,24 +229,23 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       // Take first ~5000 characters of the book for synopsis
       const excerpt = bookContent.slice(0, 5000);
 
-      const response = await fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'llama2',
-          prompt: `Generate a concise synopsis (1-2 paragraphs) of the following book excerpt. Focus on the main themes, characters, and plot.\n\nTitle: ${book.title}\nAuthor: ${getAuthors()}\n\nExcerpt:\n${excerpt}\n\nSynopsis:`,
-          stream: false
-        })
+      const { data, error } = await supabase.functions.invoke('generate-synopsis', {
+        body: {
+          bookTitle: book.title,
+          author: getAuthors(),
+          excerpt: excerpt
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate synopsis. Make sure Ollama is running locally.');
+      if (error) {
+        throw new Error(error.message || 'Failed to generate synopsis');
       }
 
-      const data = await response.json();
-      setSynopsis(data.response);
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      setSynopsis(data.synopsis);
       
       toast({
         title: "Synopsis Generated",
@@ -255,7 +254,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     } catch (error: any) {
       toast({
         title: "Generation Error",
-        description: error.message || "Failed to generate synopsis. Ensure Ollama is running with 'llama2' model.",
+        description: error.message || "Failed to generate synopsis.",
         variant: "destructive"
       });
     } finally {

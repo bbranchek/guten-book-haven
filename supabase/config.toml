@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.fetch-book-content]
 verify_jwt = false
+
+[functions.generate-synopsis]
+verify_jwt = false
