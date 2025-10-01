@@ -33,7 +33,28 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const isStoppedIntentionally = useRef(false);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const { toast } = useToast();
+
+  // Load voices for Android compatibility
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis?.getVoices();
+      if (voices && voices.length > 0) {
+        setVoicesLoaded(true);
+      }
+    };
+
+    if (window.speechSynthesis) {
+      loadVoices();
+      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+      
+      return () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+      };
+    }
+  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -431,44 +452,58 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     // Stop any existing speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(bookContent);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
+    // Small delay for Android compatibility
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(bookContent);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
 
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setIsPaused(false);
-      isStoppedIntentionally.current = false;
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setIsPaused(false);
-      if (!isStoppedIntentionally.current) {
-        toast({
-          title: "Reading Complete",
-          description: "Finished reading the content."
-        });
+      // Get available voices and set one explicitly for Android
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        // Try to find an English voice, fallback to first available
+        const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
+        utterance.voice = englishVoice || voices[0];
       }
-      isStoppedIntentionally.current = false;
-    };
 
-    utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
-      setIsSpeaking(false);
-      setIsPaused(false);
-      // Suppress error if it was intentionally stopped (canceled/interrupted)
-      if (!isStoppedIntentionally.current && event.error !== 'canceled' && event.error !== 'interrupted') {
-        toast({
-          title: "Reading Error",
-          description: "An error occurred while reading.",
-          variant: "destructive"
-        });
-      }
-      isStoppedIntentionally.current = false;
-    };
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setIsPaused(false);
+        isStoppedIntentionally.current = false;
+      };
 
-    window.speechSynthesis.speak(utterance);
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        if (!isStoppedIntentionally.current) {
+          toast({
+            title: "Reading Complete",
+            description: "Finished reading the content."
+          });
+        }
+        isStoppedIntentionally.current = false;
+        utteranceRef.current = null;
+      };
+
+      utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        // Suppress error if it was intentionally stopped (canceled/interrupted)
+        if (!isStoppedIntentionally.current && event.error !== 'canceled' && event.error !== 'interrupted') {
+          toast({
+            title: "Reading Error",
+            description: "An error occurred while reading.",
+            variant: "destructive"
+          });
+        }
+        isStoppedIntentionally.current = false;
+        utteranceRef.current = null;
+      };
+
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    }, 100);
   };
 
   const pauseReading = () => {
@@ -490,6 +525,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
     setIsPaused(false);
+    utteranceRef.current = null;
   };
 
   const bestFormat = getBestReadableFormat();
