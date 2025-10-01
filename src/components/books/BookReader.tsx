@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +32,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [chapterInput, setChapterInput] = useState<string>("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [isStoppedIntentionally, setIsStoppedIntentionally] = useState(false);
+  const isStoppedIntentionally = useRef(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -439,32 +439,33 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     utterance.onstart = () => {
       setIsSpeaking(true);
       setIsPaused(false);
-      setIsStoppedIntentionally(false);
+      isStoppedIntentionally.current = false;
     };
 
     utterance.onend = () => {
       setIsSpeaking(false);
       setIsPaused(false);
-      if (!isStoppedIntentionally) {
+      if (!isStoppedIntentionally.current) {
         toast({
           title: "Reading Complete",
           description: "Finished reading the content."
         });
       }
-      setIsStoppedIntentionally(false);
+      isStoppedIntentionally.current = false;
     };
 
-    utterance.onerror = (event) => {
+    utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
       setIsSpeaking(false);
       setIsPaused(false);
-      if (!isStoppedIntentionally) {
+      // Suppress error if it was intentionally stopped (canceled/interrupted)
+      if (!isStoppedIntentionally.current && event.error !== 'canceled' && event.error !== 'interrupted') {
         toast({
           title: "Reading Error",
           description: "An error occurred while reading.",
           variant: "destructive"
         });
       }
-      setIsStoppedIntentionally(false);
+      isStoppedIntentionally.current = false;
     };
 
     window.speechSynthesis.speak(utterance);
@@ -485,7 +486,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   };
 
   const stopReading = () => {
-    setIsStoppedIntentionally(true);
+    isStoppedIntentionally.current = true;
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
     setIsPaused(false);
