@@ -270,7 +270,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     if (!chapterInput.trim()) {
       toast({
         title: "Invalid Input",
-        description: "Please enter a chapter number in Roman numerals (e.g., I, II, III).",
+        description: "Please enter a chapter number (e.g., I, II, III, or 1, 2, 3).",
         variant: "destructive"
       });
       return;
@@ -286,7 +286,26 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     }
 
     try {
-      const chapterNum = romanToInt(chapterInput);
+      let chapterNum: number;
+      let romanNumeral: string;
+      let searchInput = chapterInput.trim();
+      
+      // Check if input is in "Chapter X" format
+      const chapterMatch = searchInput.match(/^chapter\s*(\d+|[ivxlcdm]+)$/i);
+      if (chapterMatch) {
+        searchInput = chapterMatch[1];
+      }
+      
+      // Try to parse as regular number first
+      const numericMatch = searchInput.match(/^\d+$/);
+      if (numericMatch) {
+        chapterNum = parseInt(searchInput, 10);
+        romanNumeral = ""; // Will use numeric patterns
+      } else {
+        // Try to parse as Roman numeral
+        chapterNum = romanToInt(searchInput);
+        romanNumeral = searchInput.toUpperCase();
+      }
       
       // Find where the Table of Contents ends (common markers)
       const tocEndMarkers = [
@@ -311,13 +330,24 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       // Search for the chapter in the actual book content (after TOC)
       const contentToSearch = fullBookContent.substring(searchStartIndex);
       
-      // More precise chapter heading patterns
-      const chapterPatterns = [
-        new RegExp(`\\n\\s*CHAPTER\\s+${chapterInput.toUpperCase()}[^a-zA-Z]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+${chapterInput.toUpperCase()}[^a-zA-Z]`, 'i'),
-        new RegExp(`\\n\\s*${chapterInput.toUpperCase()}\\.\\s*\\n`, 'i'),
+      // Build chapter patterns for both Roman numerals and standard numbers
+      const chapterPatterns: RegExp[] = [];
+      
+      if (romanNumeral) {
+        // Roman numeral patterns
+        chapterPatterns.push(
+          new RegExp(`\\n\\s*CHAPTER\\s+${romanNumeral}[^a-zA-Z]`, 'i'),
+          new RegExp(`\\n\\s*Chapter\\s+${romanNumeral}[^a-zA-Z]`, 'i'),
+          new RegExp(`\\n\\s*${romanNumeral}\\.\\s*\\n`, 'i')
+        );
+      }
+      
+      // Standard number patterns
+      chapterPatterns.push(
+        new RegExp(`\\n\\s*CHAPTER\\s+${chapterNum}[^\\d]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+${chapterNum}[^\\d]`, 'i'),
         new RegExp(`\\n\\s*${chapterNum}\\.\\s*\\n`)
-      ];
+      );
 
       let chapterIndex = -1;
       let matchedPattern = null;
@@ -334,17 +364,18 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       if (chapterIndex === -1) {
         toast({
           title: "Chapter Not Found",
-          description: `Could not find chapter ${chapterInput.toUpperCase()} in the book. Try a different format.`,
+          description: `Could not find chapter ${chapterInput} in the book. Try a different format.`,
           variant: "destructive"
         });
         return;
       }
 
       // Find the end of this chapter (start of next chapter or end of book)
-      const nextChapterNum = chapterNum + 1;
       const nextChapterPatterns = [
         new RegExp(`\\n\\s*CHAPTER\\s+[IVX]+[^a-zA-Z]`, 'i'),
         new RegExp(`\\n\\s*Chapter\\s+[IVX]+[^a-zA-Z]`, 'i'),
+        new RegExp(`\\n\\s*CHAPTER\\s+\\d+[^\\d]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+\\d+[^\\d]`, 'i'),
         new RegExp(`\\n\\s*[IVX]+\\.\\s*\\n`, 'i'),
         new RegExp(`\\n\\s*\\d+\\.\\s*\\n`)
       ];
@@ -367,14 +398,14 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       
       toast({
         title: "Chapter Found",
-        description: `Displaying chapter ${chapterInput.toUpperCase()}.`
+        description: `Displaying chapter ${chapterInput}.`
       });
       
       setChapterInput("");
     } catch (error: any) {
       toast({
-        title: "Invalid Roman Numeral",
-        description: error.message || "Please enter a valid Roman numeral (e.g., I, II, III, IV).",
+        title: "Invalid Input",
+        description: error.message || "Please enter a valid chapter number (e.g., I, II, III, IV, 1, 2, 3).",
         variant: "destructive"
       });
     }
@@ -671,12 +702,12 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                     id="chapter-input"
                     type="text"
                     value={chapterInput}
-                    onChange={(e) => setChapterInput(e.target.value.toUpperCase())}
+                    onChange={(e) => setChapterInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && fullBookContent && jumpToChapter()}
-                    placeholder="I, II, III..."
+                    placeholder="I, II, or Chapter 1..."
                     disabled={!fullBookContent}
-                    className="flex h-10 w-28 rounded-md border-2 border-primary/30 bg-background px-3 py-2 text-base font-medium shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    maxLength={10}
+                    className="flex h-10 w-40 rounded-md border-2 border-primary/30 bg-background px-3 py-2 text-base font-medium shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    maxLength={20}
                   />
                   <Button
                     variant="outline"
