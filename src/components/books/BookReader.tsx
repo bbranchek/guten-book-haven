@@ -307,85 +307,64 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
         romanNumeral = searchInput.toUpperCase();
       }
       
-      // Find where the Table of Contents ends
+      // Find where actual book content starts by looking for first chapter with paragraphs
       let searchStartIndex = 0;
-      const tocMarkers = [
-        /CONTENTS/i,
-        /TABLE OF CONTENTS/i,
-        /\bCONTENTS\b/i
-      ];
       
-      // Look for TOC marker
-      let tocStartIndex = -1;
-      for (const marker of tocMarkers) {
-        const match = fullBookContent.match(marker);
-        if (match && match.index !== undefined && match.index < fullBookContent.length * 0.15) {
-          tocStartIndex = match.index;
-          break;
-        }
-      }
-      
-      // If we found a TOC, look for where the actual book content starts
-      // by finding the first "CHAPTER I" (or similar) that has substantial text after it
-      if (tocStartIndex !== -1) {
-        const firstChapterPatterns = [
-          /\n\s*CHAPTER\s+I[.\s:\n]/i,
-          /\n\s*Chapter\s+I[.\s:\n]/i,
-          /\n\s*I\.\s+[A-Z]/
+      // Look for CONTENTS section
+      const contentsMatch = fullBookContent.match(/\b(CONTENTS|TABLE OF CONTENTS)\b/i);
+      if (contentsMatch && contentsMatch.index !== undefined && contentsMatch.index < fullBookContent.length * 0.15) {
+        // Search from after the TOC
+        const afterTOC = fullBookContent.substring(contentsMatch.index);
+        
+        // Find the first "CHAPTER I" that has multiple long lines (paragraphs) after it
+        const chapterIPatterns = [
+          /\n\s*CHAPTER\s+I\b/gi,
+          /\n\s*Chapter\s+I\b/gi
         ];
         
-        const searchFromTOC = fullBookContent.substring(tocStartIndex);
-        let firstChapterFound = false;
-        
-        for (const pattern of firstChapterPatterns) {
-          const matches = Array.from(searchFromTOC.matchAll(new RegExp(pattern.source, 'gi')));
+        for (const pattern of chapterIPatterns) {
+          const matches = Array.from(afterTOC.matchAll(pattern));
           
-          // Find the first match that has significant content after it (likely the actual chapter, not TOC entry)
           for (const match of matches) {
             if (match.index !== undefined) {
-              const absoluteIndex = tocStartIndex + match.index;
-              const textAfter = fullBookContent.substring(absoluteIndex, absoluteIndex + 500);
+              const testIndex = contentsMatch.index + match.index;
+              const testText = fullBookContent.substring(testIndex, testIndex + 800);
               
-              // Check if there's substantial text after this (not just a TOC entry with page number)
-              const hasSubstantialContent = textAfter.split('\n').filter(line => line.trim().length > 50).length >= 2;
+              // Count lines with substantial content (more than 60 chars = likely prose, not TOC)
+              const substantialLines = testText.split('\n')
+                .filter(line => line.trim().length > 60)
+                .length;
               
-              if (hasSubstantialContent) {
-                searchStartIndex = absoluteIndex;
-                firstChapterFound = true;
+              // If we found at least 3 substantial lines, this is likely the actual chapter start
+              if (substantialLines >= 3) {
+                searchStartIndex = testIndex;
                 break;
               }
             }
           }
           
-          if (firstChapterFound) break;
-        }
-        
-        // If we couldn't reliably find the start, search from a safe distance after TOC
-        if (!firstChapterFound && tocStartIndex !== -1) {
-          searchStartIndex = Math.min(tocStartIndex + 2000, fullBookContent.length * 0.15);
+          if (searchStartIndex > 0) break;
         }
       }
       
-      // Search for the chapter in the actual book content (after TOC)
+      // Search for the requested chapter
       const contentToSearch = fullBookContent.substring(searchStartIndex);
       
-      // Build chapter patterns for both Roman numerals and standard numbers
+      // Build chapter patterns
       const chapterPatterns: RegExp[] = [];
       
       if (romanNumeral) {
-        // Roman numeral patterns - looking for chapter headings with content after
+        // Roman numeral patterns
         chapterPatterns.push(
-          new RegExp(`\\n\\s*CHAPTER\\s+${romanNumeral}[.\\s:\\n]`, 'i'),
-          new RegExp(`\\n\\s*Chapter\\s+${romanNumeral}[.\\s:\\n]`, 'i'),
-          new RegExp(`\\n\\s*${romanNumeral}\\.\\s+[A-Z]`, 'i')
+          new RegExp(`\\n\\s*CHAPTER\\s+${romanNumeral}\\b`, 'i'),
+          new RegExp(`\\n\\s*Chapter\\s+${romanNumeral}\\b`, 'i')
         );
       }
       
       // Standard number patterns
       chapterPatterns.push(
-        new RegExp(`\\n\\s*CHAPTER\\s+${chapterNum}[.\\s:\\n]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+${chapterNum}[.\\s:\\n]`, 'i'),
-        new RegExp(`\\n\\s*${chapterNum}\\.\\s+[A-Z]`)
+        new RegExp(`\\n\\s*CHAPTER\\s+${chapterNum}\\b`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+${chapterNum}\\b`, 'i')
       );
 
       let chapterIndex = -1;
@@ -403,7 +382,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       if (chapterIndex === -1) {
         toast({
           title: "Chapter Not Found",
-          description: `Could not find chapter ${chapterInput} in the book. Try a different format.`,
+          description: `Could not find chapter ${chapterInput} in the book.`,
           variant: "destructive"
         });
         return;
@@ -411,12 +390,10 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
 
       // Find the end of this chapter (start of next chapter or end of book)
       const nextChapterPatterns = [
-        new RegExp(`\\n\\s*CHAPTER\\s+[IVX]+[.\\s:\\n]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+[IVX]+[.\\s:\\n]`, 'i'),
-        new RegExp(`\\n\\s*CHAPTER\\s+\\d+[.\\s:\\n]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+\\d+[.\\s:\\n]`, 'i'),
-        new RegExp(`\\n\\s*[IVX]+\\.\\s+[A-Z]`, 'i'),
-        new RegExp(`\\n\\s*\\d+\\.\\s+[A-Z]`)
+        /\n\s*CHAPTER\s+[IVXLCDM]+\b/gi,
+        /\n\s*Chapter\s+[IVXLCDM]+\b/gi,
+        /\n\s*CHAPTER\s+\d+\b/gi,
+        /\n\s*Chapter\s+\d+\b/gi
       ];
       
       const contentFromChapterStart = fullBookContent.substring(chapterIndex + (matchedPattern?.length || 0));
@@ -425,8 +402,8 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       // Look for the next chapter marker
       for (const pattern of nextChapterPatterns) {
         const nextMatch = contentFromChapterStart.match(pattern);
-        if (nextMatch && nextMatch.index !== undefined && nextMatch.index > 100) {
-          // Only consider it the next chapter if it's at least 100 chars away
+        if (nextMatch && nextMatch.index !== undefined && nextMatch.index > 200) {
+          // Only consider it the next chapter if it's at least 200 chars away
           chapterEndIndex = nextMatch.index;
           break;
         }
@@ -444,7 +421,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     } catch (error: any) {
       toast({
         title: "Invalid Input",
-        description: error.message || "Please enter a valid chapter number (e.g., I, II, III, IV, 1, 2, 3).",
+        description: error.message || "Please enter a valid chapter number.",
         variant: "destructive"
       });
     }
