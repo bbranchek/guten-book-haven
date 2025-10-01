@@ -307,23 +307,62 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
         romanNumeral = searchInput.toUpperCase();
       }
       
-      // Find where the Table of Contents ends (common markers)
-      const tocEndMarkers = [
-        /\n\s*CHAPTER\s+I[^\w]/i,
-        /\n\s*Chapter\s+I[^\w]/i,
-        /\n\s*I\.\s*$/im,
-        /Contents\s*\n[\s\S]{0,2000}?\n\s*CHAPTER/i
+      // Find where the Table of Contents ends
+      let searchStartIndex = 0;
+      const tocMarkers = [
+        /CONTENTS/i,
+        /TABLE OF CONTENTS/i,
+        /\bCONTENTS\b/i
       ];
       
-      let searchStartIndex = 0;
-      
-      // Try to find where actual content starts (after TOC)
-      for (const marker of tocEndMarkers) {
+      // Look for TOC marker
+      let tocStartIndex = -1;
+      for (const marker of tocMarkers) {
         const match = fullBookContent.match(marker);
-        if (match && match.index !== undefined && match.index < fullBookContent.length * 0.2) {
-          // Only consider TOC if it's in the first 20% of the book
-          searchStartIndex = match.index;
+        if (match && match.index !== undefined && match.index < fullBookContent.length * 0.15) {
+          tocStartIndex = match.index;
           break;
+        }
+      }
+      
+      // If we found a TOC, look for where the actual book content starts
+      // by finding the first "CHAPTER I" (or similar) that has substantial text after it
+      if (tocStartIndex !== -1) {
+        const firstChapterPatterns = [
+          /\n\s*CHAPTER\s+I[.\s:\n]/i,
+          /\n\s*Chapter\s+I[.\s:\n]/i,
+          /\n\s*I\.\s+[A-Z]/
+        ];
+        
+        const searchFromTOC = fullBookContent.substring(tocStartIndex);
+        let firstChapterFound = false;
+        
+        for (const pattern of firstChapterPatterns) {
+          const matches = Array.from(searchFromTOC.matchAll(new RegExp(pattern.source, 'gi')));
+          
+          // Find the first match that has significant content after it (likely the actual chapter, not TOC entry)
+          for (const match of matches) {
+            if (match.index !== undefined) {
+              const absoluteIndex = tocStartIndex + match.index;
+              const textAfter = fullBookContent.substring(absoluteIndex, absoluteIndex + 500);
+              
+              // Check if there's substantial text after this (not just a TOC entry with page number)
+              const hasSubstantialContent = textAfter.split('\n').filter(line => line.trim().length > 50).length >= 2;
+              
+              if (hasSubstantialContent) {
+                searchStartIndex = absoluteIndex;
+                firstChapterFound = true;
+                break;
+              }
+            }
+          }
+          
+          if (firstChapterFound) break;
+        }
+        
+        // If we couldn't reliably find the start, search from a safe distance after TOC
+        if (!firstChapterFound && tocStartIndex !== -1) {
+          searchStartIndex = Math.min(tocStartIndex + 2000, fullBookContent.length * 0.15);
         }
       }
       
@@ -334,19 +373,19 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       const chapterPatterns: RegExp[] = [];
       
       if (romanNumeral) {
-        // Roman numeral patterns
+        // Roman numeral patterns - looking for chapter headings with content after
         chapterPatterns.push(
-          new RegExp(`\\n\\s*CHAPTER\\s+${romanNumeral}[^a-zA-Z]`, 'i'),
-          new RegExp(`\\n\\s*Chapter\\s+${romanNumeral}[^a-zA-Z]`, 'i'),
-          new RegExp(`\\n\\s*${romanNumeral}\\.\\s*\\n`, 'i')
+          new RegExp(`\\n\\s*CHAPTER\\s+${romanNumeral}[.\\s:\\n]`, 'i'),
+          new RegExp(`\\n\\s*Chapter\\s+${romanNumeral}[.\\s:\\n]`, 'i'),
+          new RegExp(`\\n\\s*${romanNumeral}\\.\\s+[A-Z]`, 'i')
         );
       }
       
       // Standard number patterns
       chapterPatterns.push(
-        new RegExp(`\\n\\s*CHAPTER\\s+${chapterNum}[^\\d]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+${chapterNum}[^\\d]`, 'i'),
-        new RegExp(`\\n\\s*${chapterNum}\\.\\s*\\n`)
+        new RegExp(`\\n\\s*CHAPTER\\s+${chapterNum}[.\\s:\\n]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+${chapterNum}[.\\s:\\n]`, 'i'),
+        new RegExp(`\\n\\s*${chapterNum}\\.\\s+[A-Z]`)
       );
 
       let chapterIndex = -1;
@@ -372,12 +411,12 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
 
       // Find the end of this chapter (start of next chapter or end of book)
       const nextChapterPatterns = [
-        new RegExp(`\\n\\s*CHAPTER\\s+[IVX]+[^a-zA-Z]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+[IVX]+[^a-zA-Z]`, 'i'),
-        new RegExp(`\\n\\s*CHAPTER\\s+\\d+[^\\d]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+\\d+[^\\d]`, 'i'),
-        new RegExp(`\\n\\s*[IVX]+\\.\\s*\\n`, 'i'),
-        new RegExp(`\\n\\s*\\d+\\.\\s*\\n`)
+        new RegExp(`\\n\\s*CHAPTER\\s+[IVX]+[.\\s:\\n]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+[IVX]+[.\\s:\\n]`, 'i'),
+        new RegExp(`\\n\\s*CHAPTER\\s+\\d+[.\\s:\\n]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+\\d+[.\\s:\\n]`, 'i'),
+        new RegExp(`\\n\\s*[IVX]+\\.\\s+[A-Z]`, 'i'),
+        new RegExp(`\\n\\s*\\d+\\.\\s+[A-Z]`)
       ];
       
       const contentFromChapterStart = fullBookContent.substring(chapterIndex + (matchedPattern?.length || 0));
