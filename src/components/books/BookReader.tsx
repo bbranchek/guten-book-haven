@@ -264,20 +264,45 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     try {
       const chapterNum = romanToInt(chapterInput);
       
-      // Common chapter heading patterns in Project Gutenberg books
+      // Find where the Table of Contents ends (common markers)
+      const tocEndMarkers = [
+        /\n\s*CHAPTER\s+I[^\w]/i,
+        /\n\s*Chapter\s+I[^\w]/i,
+        /\n\s*I\.\s*$/im,
+        /Contents\s*\n[\s\S]{0,2000}?\n\s*CHAPTER/i
+      ];
+      
+      let searchStartIndex = 0;
+      
+      // Try to find where actual content starts (after TOC)
+      for (const marker of tocEndMarkers) {
+        const match = fullBookContent.match(marker);
+        if (match && match.index !== undefined && match.index < fullBookContent.length * 0.2) {
+          // Only consider TOC if it's in the first 20% of the book
+          searchStartIndex = match.index;
+          break;
+        }
+      }
+      
+      // Search for the chapter in the actual book content (after TOC)
+      const contentToSearch = fullBookContent.substring(searchStartIndex);
+      
+      // More precise chapter heading patterns
       const chapterPatterns = [
-        new RegExp(`\\n\\s*${chapterInput.toUpperCase()}[\\s\\.:]`, 'i'),
-        new RegExp(`\\n\\s*Chapter\\s+${chapterInput.toUpperCase()}[\\s\\.:]`, 'i'),
-        new RegExp(`\\n\\s*CHAPTER\\s+${chapterInput.toUpperCase()}[\\s\\.:]`, 'i'),
-        new RegExp(`\\n\\s*${chapterNum}[\\s\\.:]`, 'i')
+        new RegExp(`\\n\\s*CHAPTER\\s+${chapterInput.toUpperCase()}[^a-zA-Z]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+${chapterInput.toUpperCase()}[^a-zA-Z]`, 'i'),
+        new RegExp(`\\n\\s*${chapterInput.toUpperCase()}\\.\\s*\\n`, 'i'),
+        new RegExp(`\\n\\s*${chapterNum}\\.\\s*\\n`)
       ];
 
       let chapterIndex = -1;
+      let matchedPattern = null;
       
       for (const pattern of chapterPatterns) {
-        const match = fullBookContent.match(pattern);
+        const match = contentToSearch.match(pattern);
         if (match && match.index !== undefined) {
-          chapterIndex = match.index;
+          chapterIndex = searchStartIndex + match.index;
+          matchedPattern = match[0];
           break;
         }
       }
@@ -291,12 +316,34 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
         return;
       }
 
-      const contentFromChapter = fullBookContent.substring(chapterIndex).trim();
-      setBookContent(contentFromChapter);
+      // Find the end of this chapter (start of next chapter or end of book)
+      const nextChapterNum = chapterNum + 1;
+      const nextChapterPatterns = [
+        new RegExp(`\\n\\s*CHAPTER\\s+[IVX]+[^a-zA-Z]`, 'i'),
+        new RegExp(`\\n\\s*Chapter\\s+[IVX]+[^a-zA-Z]`, 'i'),
+        new RegExp(`\\n\\s*[IVX]+\\.\\s*\\n`, 'i'),
+        new RegExp(`\\n\\s*\\d+\\.\\s*\\n`)
+      ];
+      
+      const contentFromChapterStart = fullBookContent.substring(chapterIndex + (matchedPattern?.length || 0));
+      let chapterEndIndex = contentFromChapterStart.length;
+      
+      // Look for the next chapter marker
+      for (const pattern of nextChapterPatterns) {
+        const nextMatch = contentFromChapterStart.match(pattern);
+        if (nextMatch && nextMatch.index !== undefined && nextMatch.index > 100) {
+          // Only consider it the next chapter if it's at least 100 chars away
+          chapterEndIndex = nextMatch.index;
+          break;
+        }
+      }
+      
+      const chapterContent = contentFromChapterStart.substring(0, chapterEndIndex).trim();
+      setBookContent(chapterContent);
       
       toast({
         title: "Chapter Found",
-        description: `Jumped to chapter ${chapterInput.toUpperCase()}.`
+        description: `Displaying chapter ${chapterInput.toUpperCase()}.`
       });
       
       setChapterInput("");
