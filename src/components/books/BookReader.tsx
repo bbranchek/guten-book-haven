@@ -32,6 +32,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [chapterInput, setChapterInput] = useState<string>("");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isStoppedIntentionally, setIsStoppedIntentionally] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -438,25 +439,32 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     utterance.onstart = () => {
       setIsSpeaking(true);
       setIsPaused(false);
+      setIsStoppedIntentionally(false);
     };
 
     utterance.onend = () => {
       setIsSpeaking(false);
       setIsPaused(false);
-      toast({
-        title: "Reading Complete",
-        description: "Finished reading the content."
-      });
+      if (!isStoppedIntentionally) {
+        toast({
+          title: "Reading Complete",
+          description: "Finished reading the content."
+        });
+      }
+      setIsStoppedIntentionally(false);
     };
 
     utterance.onerror = (event) => {
       setIsSpeaking(false);
       setIsPaused(false);
-      toast({
-        title: "Reading Error",
-        description: "An error occurred while reading.",
-        variant: "destructive"
-      });
+      if (!isStoppedIntentionally) {
+        toast({
+          title: "Reading Error",
+          description: "An error occurred while reading.",
+          variant: "destructive"
+        });
+      }
+      setIsStoppedIntentionally(false);
     };
 
     window.speechSynthesis.speak(utterance);
@@ -477,6 +485,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   };
 
   const stopReading = () => {
+    setIsStoppedIntentionally(true);
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
     setIsPaused(false);
