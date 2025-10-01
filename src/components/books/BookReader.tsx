@@ -33,28 +33,8 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const isStoppedIntentionally = useRef(false);
-  const [voicesLoaded, setVoicesLoaded] = useState(false);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
-
-  // Load voices for Android compatibility
-  useEffect(() => {
-    const loadVoices = () => {
-      const voices = window.speechSynthesis?.getVoices();
-      if (voices && voices.length > 0) {
-        setVoicesLoaded(true);
-      }
-    };
-
-    if (window.speechSynthesis) {
-      loadVoices();
-      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
-      
-      return () => {
-        window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
-      };
-    }
-  }, []);
 
   useEffect(() => {
     if (userId) {
@@ -430,7 +410,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     }
   };
 
-  const startReading = () => {
+  const startReading = async () => {
     if (!bookContent) {
       toast({
         title: "No Content",
@@ -440,42 +420,56 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       return;
     }
 
-    if (!window.speechSynthesis) {
+    try {
+      setIsSpeaking(true);
+      isStoppedIntentionally.current = false;
+
+      // Limit text length to prevent timeouts (first ~3000 characters)
+      const textToRead = bookContent.slice(0, 3000);
+
       toast({
-        title: "Not Supported",
-        description: "Text-to-speech is not supported in your browser.",
-        variant: "destructive"
+        title: "Generating Audio",
+        description: "Please wait while we prepare the audio..."
       });
-      return;
-    }
 
-    // Stop any existing speech
-    window.speechSynthesis.cancel();
+      // Call our edge function for text-to-speech
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: { 
+          text: textToRead,
+          voiceId: '9BWtsMINqrJLrRacOk9x' // Aria voice
+        }
+      });
 
-    // Small delay for Android compatibility
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(bookContent);
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-
-      // Get available voices and set one explicitly for Android
-      const voices = window.speechSynthesis.getVoices();
-      if (voices.length > 0) {
-        // Try to find an English voice, fallback to first available
-        const englishVoice = voices.find(voice => voice.lang.startsWith('en'));
-        utterance.voice = englishVoice || voices[0];
+      if (error) {
+        throw new Error(error.message || 'Failed to generate audio');
       }
 
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        setIsPaused(false);
-        isStoppedIntentionally.current = false;
-      };
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
-      utterance.onend = () => {
+      // Stop if user clicked stop while loading
+      if (isStoppedIntentionally.current) {
+        setIsSpeaking(false);
+        return;
+      }
+
+      // Convert base64 to audio blob and play
+      const binaryString = atob(data.audioContent);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
         setIsSpeaking(false);
         setIsPaused(false);
+        URL.revokeObjectURL(audioUrl);
         if (!isStoppedIntentionally.current) {
           toast({
             title: "Reading Complete",
@@ -483,49 +477,62 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
           });
         }
         isStoppedIntentionally.current = false;
-        utteranceRef.current = null;
       };
 
-      utterance.onerror = (event: SpeechSynthesisErrorEvent) => {
+      audio.onerror = () => {
         setIsSpeaking(false);
         setIsPaused(false);
-        // Suppress error if it was intentionally stopped (canceled/interrupted)
-        if (!isStoppedIntentionally.current && event.error !== 'canceled' && event.error !== 'interrupted') {
+        URL.revokeObjectURL(audioUrl);
+        if (!isStoppedIntentionally.current) {
           toast({
-            title: "Reading Error",
-            description: "An error occurred while reading.",
+            title: "Playback Error",
+            description: "An error occurred during playback.",
             variant: "destructive"
           });
         }
         isStoppedIntentionally.current = false;
-        utteranceRef.current = null;
       };
 
-      utteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
-    }, 100);
+      await audio.play();
+
+    } catch (error: any) {
+      setIsSpeaking(false);
+      setIsPaused(false);
+      
+      if (!isStoppedIntentionally.current) {
+        toast({
+          title: "Audio Generation Error",
+          description: error.message || "Failed to generate audio.",
+          variant: "destructive"
+        });
+      }
+      isStoppedIntentionally.current = false;
+    }
   };
 
   const pauseReading = () => {
-    if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-      window.speechSynthesis.pause();
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
       setIsPaused(true);
     }
   };
 
   const resumeReading = () => {
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume();
+    if (audioRef.current && audioRef.current.paused) {
+      audioRef.current.play();
       setIsPaused(false);
     }
   };
 
   const stopReading = () => {
     isStoppedIntentionally.current = true;
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
     setIsSpeaking(false);
     setIsPaused(false);
-    utteranceRef.current = null;
   };
 
   const bestFormat = getBestReadableFormat();
