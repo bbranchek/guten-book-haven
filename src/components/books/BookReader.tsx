@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, BookOpen, Download, Bookmark, BookmarkCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, Download, Bookmark, BookmarkCheck, Sparkles, Play, Pause, Square } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Book {
@@ -30,6 +30,8 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [synopsis, setSynopsis] = useState<string>("");
   const [isSynopsisLoading, setIsSynopsisLoading] = useState(false);
   const [chapterInput, setChapterInput] = useState<string>("");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -406,6 +408,80 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     }
   };
 
+  const startReading = () => {
+    if (!bookContent) {
+      toast({
+        title: "No Content",
+        description: "Please load the book content first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!window.speechSynthesis) {
+      toast({
+        title: "Not Supported",
+        description: "Text-to-speech is not supported in your browser.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Stop any existing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(bookContent);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setIsPaused(false);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setIsPaused(false);
+      toast({
+        title: "Reading Complete",
+        description: "Finished reading the content."
+      });
+    };
+
+    utterance.onerror = (event) => {
+      setIsSpeaking(false);
+      setIsPaused(false);
+      toast({
+        title: "Reading Error",
+        description: "An error occurred while reading.",
+        variant: "destructive"
+      });
+    };
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const pauseReading = () => {
+    if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+      window.speechSynthesis.pause();
+      setIsPaused(true);
+    }
+  };
+
+  const resumeReading = () => {
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      setIsPaused(false);
+    }
+  };
+
+  const stopReading = () => {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setIsPaused(false);
+  };
+
   const bestFormat = getBestReadableFormat();
 
   return (
@@ -486,17 +562,58 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                       className="flex items-center gap-2"
                     >
                       <BookOpen className="h-4 w-4" />
-                    {bookContent ? 'Reload Text' : 'Load Text'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={generateSynopsis}
-                    disabled={isSynopsisLoading || !bookContent}
-                    className="flex items-center gap-2"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Generate Synopsis
-                  </Button>
+                      {bookContent ? 'Reload Text' : 'Load Text'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={generateSynopsis}
+                      disabled={isSynopsisLoading || !bookContent}
+                      className="flex items-center gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Generate Synopsis
+                    </Button>
+                    {!isSpeaking ? (
+                      <Button
+                        variant="outline"
+                        onClick={startReading}
+                        disabled={!bookContent}
+                        className="flex items-center gap-2"
+                      >
+                        <Play className="h-4 w-4" />
+                        Read Aloud
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        {!isPaused ? (
+                          <Button
+                            variant="outline"
+                            onClick={pauseReading}
+                            className="flex items-center gap-2"
+                          >
+                            <Pause className="h-4 w-4" />
+                            Pause
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            onClick={resumeReading}
+                            className="flex items-center gap-2"
+                          >
+                            <Play className="h-4 w-4" />
+                            Resume
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          onClick={stopReading}
+                          className="flex items-center gap-2"
+                        >
+                          <Square className="h-4 w-4" />
+                          Stop
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
