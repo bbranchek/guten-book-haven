@@ -203,8 +203,13 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       const trimmedContent = content.trim();
       setFullBookContent(trimmedContent);
       
-      // Automatically jump to the first chapter
-      await jumpToFirstChapter(trimmedContent);
+      // Display the full book content by default
+      setBookContent(trimmedContent);
+      
+      toast({
+        title: "Book Loaded",
+        description: "Book loaded successfully. Use 'Jump to Chapter' to navigate to specific chapters.",
+      });
       
       } catch (error) {
         console.error('Book loading error:', error);
