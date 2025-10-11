@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, BookOpen, Download, Bookmark, BookmarkCheck, Sparkles, Play, Pause, Square } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Book {
   id: number;
@@ -34,6 +35,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const [isPaused, setIsPaused] = useState(false);
   const isStoppedIntentionally = useRef(false);
   const [voicesLoaded, setVoicesLoaded] = useState(false);
+  const [readAloudSource, setReadAloudSource] = useState<'book' | 'synopsis'>('book');
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const { toast } = useToast();
 
@@ -476,10 +478,12 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   };
 
   const startReading = () => {
-    if (!bookContent) {
+    const contentToRead = readAloudSource === 'synopsis' ? synopsis : bookContent;
+    
+    if (!contentToRead) {
       toast({
         title: "No Content",
-        description: "Please load the book content first.",
+        description: `Please ${readAloudSource === 'synopsis' ? 'generate a synopsis' : 'load the book content'} first.`,
         variant: "destructive"
       });
       return;
@@ -499,7 +503,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
 
     // Small delay for Android compatibility
     setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(bookContent);
+      const utterance = new SpeechSynthesisUtterance(contentToRead);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
@@ -664,11 +668,22 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
                       <Sparkles className="h-4 w-4" />
                       Generate Synopsis
                     </Button>
+                    {synopsis && (
+                      <Select value={readAloudSource} onValueChange={(value: 'book' | 'synopsis') => setReadAloudSource(value)}>
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="book">Read Book</SelectItem>
+                          <SelectItem value="synopsis">Read Synopsis</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                     {!isSpeaking ? (
                       <Button
                         variant="outline"
                         onClick={startReading}
-                        disabled={!bookContent}
+                        disabled={!bookContent && !synopsis}
                         className="flex items-center gap-2"
                       >
                         <Play className="h-4 w-4" />
