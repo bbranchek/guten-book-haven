@@ -221,10 +221,10 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
   const jumpToFirstChapter = async (content: string) => {
     // Find the first chapter in various formats
     const chapterPatterns: RegExp[] = [
-      /\n\s*CHAPTER\s+(?:I|1|One|ONE)\b/i,
-      /\n\s*Chapter\s+(?:I|1|One)\b/i,
-      /\n\s*(?:I|1)\.\s*$/m,
-      /\n\s*(?:I|1)\s*$/m
+      /\n\s*CHAPTER\s+(?:I|1|One|ONE)\b/gi,
+      /\n\s*Chapter\s+(?:I|1|One)\b/gi,
+      /\n\s*(?:I|1)\.\s*$/gm,
+      /\n\s*(?:I|1)\s*$/gm
     ];
 
     const allMatches: Array<{index: number, pattern: string, score: number}> = [];
