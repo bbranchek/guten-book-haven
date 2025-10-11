@@ -201,8 +201,10 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       }
 
       const trimmedContent = content.trim();
-      setBookContent(trimmedContent);
       setFullBookContent(trimmedContent);
+      
+      // Automatically jump to the first chapter
+      await jumpToFirstChapter(trimmedContent);
       
     } catch (error) {
       toast({
@@ -213,6 +215,93 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const jumpToFirstChapter = async (content: string) => {
+    // Find the first chapter in various formats
+    const chapterPatterns: RegExp[] = [
+      /\n\s*CHAPTER\s+(?:I|1|One|ONE)\b/i,
+      /\n\s*Chapter\s+(?:I|1|One)\b/i,
+      /\n\s*(?:I|1)\.\s*$/m,
+      /\n\s*(?:I|1)\s*$/m
+    ];
+
+    const allMatches: Array<{index: number, pattern: string, score: number}> = [];
+
+    for (const pattern of chapterPatterns) {
+      const matches = Array.from(content.matchAll(pattern));
+      for (const match of matches) {
+        if (match.index !== undefined) {
+          // Score based on prose content that follows
+          const testText = content.substring(match.index, match.index + 1000);
+          
+          const lines = testText.split('\n');
+          let proseScore = 0;
+          
+          for (let i = 1; i < Math.min(lines.length, 15); i++) {
+            const lineLength = lines[i].trim().length;
+            if (lineLength > 60) {
+              proseScore += 2;
+            } else if (lineLength > 30) {
+              proseScore += 1;
+            }
+          }
+          
+          const hasMultipleParagraphs = testText.split('\n\n').length > 1;
+          const hasLongSentences = /[.!?]\s+[A-z]+/.test(testText);
+          
+          if (hasMultipleParagraphs) proseScore += 5;
+          if (hasLongSentences) proseScore += 3;
+          
+          allMatches.push({
+            index: match.index,
+            pattern: match[0],
+            score: proseScore
+          });
+        }
+      }
+    }
+
+    if (allMatches.length === 0) {
+      // If no chapters found, just show the beginning of the book
+      setBookContent(content.substring(0, Math.min(10000, content.length)));
+      toast({
+        title: "Book Loaded",
+        description: "No chapters detected. Showing book content.",
+      });
+      return;
+    }
+
+    // Get the best match (highest score = most likely the actual chapter, not TOC)
+    allMatches.sort((a, b) => b.score - a.score);
+    const bestMatch = allMatches[0];
+
+    // Find the end of the first chapter
+    const nextChapterPatterns: RegExp[] = [
+      /\n\s*CHAPTER\s+(?:II|2|Two|TWO)\b/i,
+      /\n\s*Chapter\s+(?:II|2|Two)\b/i,
+      /\n\s*(?:II|2)\.\s*$/m,
+      /\n\s*(?:II|2)\s*$/m
+    ];
+
+    const contentFromStart = content.substring(bestMatch.index);
+    let chapterEndIndex = contentFromStart.length;
+
+    for (const pattern of nextChapterPatterns) {
+      const match = contentFromStart.match(pattern);
+      if (match && match.index !== undefined && match.index > 300) {
+        chapterEndIndex = match.index;
+        break;
+      }
+    }
+
+    const chapterContent = contentFromStart.substring(0, chapterEndIndex).trim();
+    setBookContent(chapterContent);
+    
+    toast({
+      title: "Book Loaded",
+      description: "Starting at Chapter 1.",
+    });
   };
 
   const getBestReadableFormat = () => {
