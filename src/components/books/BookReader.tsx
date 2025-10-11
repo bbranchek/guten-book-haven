@@ -206,13 +206,14 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
       // Automatically jump to the first chapter
       await jumpToFirstChapter(trimmedContent);
       
-    } catch (error) {
-      toast({
-        title: "Loading Error",
-        description: "Unable to load book content. Please try a different format.",
-        variant: "destructive"
-      });
-    } finally {
+      } catch (error) {
+        console.error('Book loading error:', error);
+        toast({
+          title: "Loading Error",
+          description: error instanceof Error ? error.message : "Unable to load book content. Please try a different format.",
+          variant: "destructive"
+        });
+      } finally {
       setIsLoading(false);
     }
   };
