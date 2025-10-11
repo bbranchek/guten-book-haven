@@ -249,7 +249,7 @@ export default function BookReader({ book, onBack, userId }: BookReaderProps) {
           }
           
           const hasMultipleParagraphs = testText.split('\n\n').length > 1;
-          const hasLongSentences = /[.!?]\s+[A-z]+/.test(testText);
+          const hasLongSentences = /[.!?]\s+[A-Za-z]+/.test(testText);
           
           if (hasMultipleParagraphs) proseScore += 5;
           if (hasLongSentences) proseScore += 3;
